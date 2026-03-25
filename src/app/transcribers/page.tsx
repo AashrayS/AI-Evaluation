@@ -25,6 +25,7 @@ import { Search, ArrowUpDown, Users, ShieldAlert, ShieldCheck, AlertTriangle } f
 import { transcribers } from "@/data/mock-data";
 import { calculateTextDensity, getDensityColor } from "@/lib/quality-engine";
 import { TranscriberStatus } from "@/types";
+import { RouteGuard } from "@/components/route-guard";
 
 type SortField = "name" | "totalTasks" | "avgTextDensity" | "noEditRate" | "strikes";
 
@@ -56,6 +57,7 @@ export default function TranscribersPage() {
   const blocked = transcribers.filter((t) => t.status === "blocked").length;
 
   return (
+    <RouteGuard requiredRole="admin">
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Transcribers</h1>
@@ -232,6 +234,7 @@ export default function TranscribersPage() {
         </CardContent>
       </Card>
     </div>
+    </RouteGuard>
   );
 }
 

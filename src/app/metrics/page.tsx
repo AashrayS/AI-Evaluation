@@ -14,6 +14,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { evaluators, dailyMetrics, dashboardMetrics } from "@/data/mock-data";
+import { RouteGuard } from "@/components/route-guard";
 import {
   BarChart,
   Bar,
@@ -89,6 +90,7 @@ export default function MetricsPage() {
   const activeEvaluators = evaluators.filter((e) => e.isActive);
 
   return (
+    <RouteGuard requiredRole="admin">
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Metrics</h1>
@@ -461,6 +463,7 @@ export default function MetricsPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </RouteGuard>
   );
 }
 

@@ -10,21 +10,36 @@ import {
   Activity,
   ChevronLeft,
   ChevronRight,
+  Shield,
+  UserCheck,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useAuth, UserRole } from "@/contexts/auth-context";
 
-const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/transcribers", label: "Transcribers", icon: Users },
-  { href: "/evaluations", label: "Evaluations", icon: ClipboardCheck },
-  { href: "/metrics", label: "Metrics", icon: BarChart3 },
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  requiredRole: "admin" | "all";
+}
+
+const navItems: NavItem[] = [
+  { href: "/", label: "Dashboard", icon: LayoutDashboard, requiredRole: "all" },
+  { href: "/transcribers", label: "Transcribers", icon: Users, requiredRole: "admin" },
+  { href: "/evaluations", label: "Evaluations", icon: ClipboardCheck, requiredRole: "all" },
+  { href: "/metrics", label: "Metrics", icon: BarChart3, requiredRole: "admin" },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const { role, setRole } = useAuth();
+
+  const visibleItems = navItems.filter(
+    (item) => item.requiredRole === "all" || role === "admin"
+  );
 
   return (
     <aside
@@ -52,7 +67,8 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {navItems.map((item) => {
+
+        {visibleItems.map((item) => {
           const isActive =
             item.href === "/"
               ? pathname === "/"
@@ -77,6 +93,31 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      {/* Role Switcher */}
+      <div className="border-t border-border px-3 py-3">
+        <button
+          onClick={() => setRole(role === "admin" ? "evaluator" : "admin")}
+          title={collapsed ? `Role: ${role}` : undefined}
+          className={cn(
+            "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+            "hover:bg-accent hover:text-accent-foreground",
+            collapsed && "justify-center"
+          )}
+        >
+          {role === "admin" ? (
+            <Shield className="h-5 w-5 shrink-0 text-emerald-400" />
+          ) : (
+            <UserCheck className="h-5 w-5 shrink-0 text-blue-400" />
+          )}
+          {!collapsed && (
+            <div className="flex flex-col items-start">
+              <span className="text-xs text-muted-foreground">Role</span>
+              <span className="capitalize text-foreground">{role}</span>
+            </div>
+          )}
+        </button>
+      </div>
 
       {/* Collapse Button */}
       <div className="border-t border-border p-3">

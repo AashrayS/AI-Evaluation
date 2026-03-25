@@ -34,6 +34,7 @@ import {
   Tooltip,
 } from "recharts";
 import Link from "next/link";
+import { useAuth } from "@/contexts/auth-context";
 
 const statusData = [
   {
@@ -101,6 +102,8 @@ const recentActivity = [
 
 export default function DashboardPage() {
   const m = dashboardMetrics;
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
 
   return (
     <div className="space-y-6">
@@ -108,12 +111,14 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground mt-1">
-          Voice AI Evaluation Platform overview
+          {isAdmin
+            ? "Voice AI Evaluation Platform overview"
+            : "Your evaluation workspace"}
         </p>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 ${isAdmin ? "lg:grid-cols-4" : "lg:grid-cols-2"} gap-4`}>
         <MetricCard
           title="Total Conversations"
           value={m.totalConversations.toLocaleString()}
@@ -128,24 +133,28 @@ export default function DashboardPage() {
           trend={`${m.evaluationsToday} today`}
           trendUp
         />
-        <MetricCard
-          title="Avg Agreement"
-          value={`${(m.avgInterAgreement * 100).toFixed(0)}%`}
-          icon={TrendingUp}
-          trend="Target: >80%"
-          trendUp={m.avgInterAgreement >= 0.8}
-        />
-        <MetricCard
-          title="48h Completion"
-          value={`${(m.completionRate48h * 100).toFixed(0)}%`}
-          icon={Clock}
-          trend={`Avg ${Math.round(m.avgEvalTimeSec / 60)}min/eval`}
-          trendUp={m.completionRate48h >= 0.9}
-        />
+        {isAdmin && (
+          <MetricCard
+            title="Avg Agreement"
+            value={`${(m.avgInterAgreement * 100).toFixed(0)}%`}
+            icon={TrendingUp}
+            trend="Target: >80%"
+            trendUp={m.avgInterAgreement >= 0.8}
+          />
+        )}
+        {isAdmin && (
+          <MetricCard
+            title="48h Completion"
+            value={`${(m.completionRate48h * 100).toFixed(0)}%`}
+            icon={Clock}
+            trend={`Avg ${Math.round(m.avgEvalTimeSec / 60)}min/eval`}
+            trendUp={m.completionRate48h >= 0.9}
+          />
+        )}
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* Charts Row - Admin only for Transcriber Status */}
+      <div className={`grid grid-cols-1 ${isAdmin ? "lg:grid-cols-3" : ""} gap-4`}>
         {/* Evaluation Throughput */}
         <Card className="lg:col-span-2 bg-card border-border">
           <CardHeader className="pb-2">
@@ -187,7 +196,8 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Transcriber Status Pie */}
+        {/* Transcriber Status Pie - Admin only */}
+        {isAdmin && (
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -237,10 +247,11 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+        )}
       </div>
 
       {/* Bottom Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className={`grid grid-cols-1 ${isAdmin ? "lg:grid-cols-3" : "lg:grid-cols-2"} gap-4`}>
         {/* Conversation Status */}
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
@@ -274,7 +285,8 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Transcriber Quality Alerts */}
+        {/* Transcriber Quality Alerts - Admin only */}
+        {isAdmin && (
         <Card className="bg-card border-border">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -320,6 +332,7 @@ export default function DashboardPage() {
             />
           </CardContent>
         </Card>
+        )}
 
         {/* Recent Activity */}
         <Card className="bg-card border-border">

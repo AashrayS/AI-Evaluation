@@ -36,6 +36,7 @@ import {
   getDensityColor,
   getEditBehaviorColor,
 } from "@/lib/quality-engine";
+import { RouteGuard } from "@/components/route-guard";
 import {
   AreaChart,
   Area,
@@ -78,6 +79,7 @@ export default function TranscriberDetailPage({
   }));
 
   return (
+    <RouteGuard requiredRole="admin">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
@@ -442,6 +444,7 @@ export default function TranscriberDetailPage({
         </Card>
       )}
     </div>
+    </RouteGuard>
   );
 }
 
