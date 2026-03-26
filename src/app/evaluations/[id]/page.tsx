@@ -29,6 +29,9 @@ import {
   getScoreBg,
   aggregateScores,
   calculateAgreement,
+  getCriterionColor,
+  getCriterionBg,
+  getPoolLabel,
 } from "@/lib/scoring-engine";
 import { EvaluationScores } from "@/types";
 
@@ -48,12 +51,11 @@ export default function EvaluationDetailPage({
   const conversation = getConversationById(id);
   const existingEvals = getEvaluationsForConversation(id);
 
-  const [scores, setScores] = useState<EvaluationScores>({
-    speechNaturalness: 0,
-    understandingAccuracy: 0,
-    conversationManagement: 0,
-    taskCompletion: 0,
-  });
+  // For demonstration, we'll "log in" as Dr. Sarah Chen (e1)
+  const currentEvaluator = evaluators[0]; // e1
+  const specializedCriteria = currentEvaluator.specializations;
+
+  const [scores, setScores] = useState<EvaluationScores>({});
   const [notes, setNotes] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -92,7 +94,7 @@ export default function EvaluationDetailPage({
     }
   };
 
-  const allScored = criteria.every((c) => scores[c] > 0);
+  const allScored = specializedCriteria.every((c) => (scores[c] ?? 0) > 0);
   const aggScores = existingEvals.length > 0 ? aggregateScores(existingEvals) : null;
   const agreement =
     existingEvals.length > 1 ? calculateAgreement(existingEvals) : null;
@@ -202,8 +204,8 @@ export default function EvaluationDetailPage({
                         <p className="text-[10px] text-muted-foreground">
                           {criterionLabels[c]}
                         </p>
-                        <p className={`text-lg font-bold ${getScoreColor(aggScores[c])}`}>
-                          {aggScores[c].toFixed(1)}
+                        <p className={`text-lg font-bold ${aggScores ? getScoreColor(aggScores[c] ?? 0) : ""}`}>
+                          {aggScores ? (aggScores[c] ?? 0).toFixed(1) : "-"}
                         </p>
                       </div>
                     ))}
@@ -253,8 +255,8 @@ export default function EvaluationDetailPage({
                         <p className="text-[10px] text-muted-foreground mb-1">
                           {criterionLabels[c]}
                         </p>
-                        <p className={`text-2xl font-bold ${getScoreColor(scores[c])}`}>
-                          {scores[c]}
+                        <p className={`text-2xl font-bold ${getScoreColor(scores[c] ?? 0)}`}>
+                          {scores[c] ?? "-"}
                         </p>
                       </div>
                     ))}
@@ -267,11 +269,39 @@ export default function EvaluationDetailPage({
             </Card>
           ) : (
             <>
+              {/* Evaluator Context */}
+              <Card className="bg-primary/5 border-primary/20">
+                <CardContent className="py-4 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                      {currentEvaluator.name.split(" ").map(n => n[0]).join("")}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold">{currentEvaluator.name}</p>
+                      <p className="text-xs text-primary font-medium">
+                        {getPoolLabel(specializedCriteria)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Expertise Coverage</p>
+                    <div className="flex gap-1 justify-end">
+                      {specializedCriteria.map(c => (
+                        <Badge key={c} variant="outline" className={`text-[9px] px-1.5 py-0 ${getCriterionBg(c)}`}>
+                          {criterionLabels[c]}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Scoring Rubrics */}
-              {criteria.map((criterion) => (
-                <Card key={criterion} className="bg-card border-border">
+              {specializedCriteria.map((criterion) => (
+                <Card key={criterion} className={`bg-card border-l-4 ${getCriterionColor(criterion).replace("text-", "border-")}`}>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-semibold">
+                    <CardTitle className={`text-base font-semibold flex items-center gap-2 ${getCriterionColor(criterion)}`}>
+                      <div className={`h-2 w-2 rounded-full ${getCriterionColor(criterion).replace("text-", "bg-")}`} />
                       {criterionLabels[criterion]}
                     </CardTitle>
                   </CardHeader>
@@ -332,8 +362,8 @@ export default function EvaluationDetailPage({
               <div className="flex items-center justify-between sticky bottom-0 bg-background/80 backdrop-blur-sm py-4 border-t border-border -mx-6 px-6 lg:-mx-8 lg:px-8">
                 <div className="text-sm text-muted-foreground">
                   {allScored
-                    ? "All criteria scored — ready to submit"
-                    : `${criteria.filter((c) => scores[c] > 0).length} of 4 criteria scored`}
+                    ? "All assigned criteria scored — ready to submit"
+                    : `${specializedCriteria.filter((c) => (scores[c] ?? 0) > 0).length} of ${specializedCriteria.length} assigned criteria scored`}
                 </div>
                 <Button
                   onClick={handleSubmit}

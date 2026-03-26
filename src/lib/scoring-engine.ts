@@ -5,23 +5,27 @@ import { Evaluation, EvaluationScores } from "@/types";
 export function aggregateScores(evaluations: Evaluation[]): EvaluationScores | null {
   if (evaluations.length === 0) return null;
 
-  const sum = evaluations.reduce(
-    (acc, ev) => ({
-      speechNaturalness: acc.speechNaturalness + ev.scores.speechNaturalness,
-      understandingAccuracy: acc.understandingAccuracy + ev.scores.understandingAccuracy,
-      conversationManagement: acc.conversationManagement + ev.scores.conversationManagement,
-      taskCompletion: acc.taskCompletion + ev.scores.taskCompletion,
-    }),
-    { speechNaturalness: 0, understandingAccuracy: 0, conversationManagement: 0, taskCompletion: 0 }
-  );
+  const criteria: (keyof EvaluationScores)[] = [
+    "speechNaturalness",
+    "understandingAccuracy",
+    "conversationManagement",
+    "taskCompletion",
+  ];
 
-  const n = evaluations.length;
-  return {
-    speechNaturalness: Math.round((sum.speechNaturalness / n) * 10) / 10,
-    understandingAccuracy: Math.round((sum.understandingAccuracy / n) * 10) / 10,
-    conversationManagement: Math.round((sum.conversationManagement / n) * 10) / 10,
-    taskCompletion: Math.round((sum.taskCompletion / n) * 10) / 10,
-  };
+  const result: EvaluationScores = {};
+
+  for (const criterion of criteria) {
+    const scores = evaluations
+      .map((ev) => ev.scores[criterion])
+      .filter((s): s is number => s !== undefined && s !== null);
+
+    if (scores.length > 0) {
+      const sum = scores.reduce((a, b) => a + b, 0);
+      result[criterion] = Math.round((sum / scores.length) * 10) / 10;
+    }
+  }
+
+  return Object.keys(result).length > 0 ? result : null;
 }
 
 // ========== Inter-Evaluator Agreement ==========
@@ -43,12 +47,14 @@ export function calculateAgreement(evaluations: Evaluation[]): number {
   for (const criterion of criteria) {
     for (let i = 0; i < evaluations.length; i++) {
       for (let j = i + 1; j < evaluations.length; j++) {
-        const diff = Math.abs(
-          evaluations[i].scores[criterion] - evaluations[j].scores[criterion]
-        );
-        // Scores within 1 point are considered "in agreement"
-        agreementSum += diff <= 1 ? 1 : 0;
-        totalPairs++;
+        const scoreI = evaluations[i].scores[criterion];
+        const scoreJ = evaluations[j].scores[criterion];
+
+        if (scoreI !== undefined && scoreJ !== undefined) {
+          const diff = Math.abs(scoreI - scoreJ);
+          agreementSum += diff <= 1 ? 1 : 0;
+          totalPairs++;
+        }
       }
     }
   }
@@ -73,13 +79,19 @@ export function checkGoldAccuracy(
   let totalDeviation = 0;
 
   for (const criterion of criteria) {
-    const dev = Math.abs(evaluation.scores[criterion] - goldScores[criterion]);
-    deviations[criterion] = dev;
-    totalDeviation += dev;
+    const score = evaluation.scores[criterion];
+    const gold = goldScores[criterion];
+
+    if (score !== undefined && gold !== undefined) {
+      const dev = Math.abs(score - gold);
+      deviations[criterion] = dev;
+      totalDeviation += dev;
+    }
   }
 
-  // Max possible deviation is 4 criteria * 4 points = 16
-  const accuracy = 1 - totalDeviation / 16;
+  // Max possible deviation is 4 points per evaluated criterion
+  const evaluatedCount = Object.keys(deviations).length;
+  const accuracy = evaluatedCount > 0 ? 1 - totalDeviation / (evaluatedCount * 4) : 1;
 
   return { accuracy, deviations };
 }
@@ -149,3 +161,33 @@ export const criterionLabels: Record<string, string> = {
   conversationManagement: "Conversation Management",
   taskCompletion: "Task Completion",
 };
+
+export function getCriterionColor(criterion: string): string {
+  const colors: Record<string, string> = {
+    speechNaturalness: "text-blue-400",
+    understandingAccuracy: "text-emerald-400",
+    conversationManagement: "text-violet-400",
+    taskCompletion: "text-orange-400",
+  };
+  return colors[criterion] || "text-primary";
+}
+
+export function getCriterionBg(criterion: string): string {
+  const bgs: Record<string, string> = {
+    speechNaturalness: "bg-blue-500/10 border-blue-500/20",
+    understandingAccuracy: "bg-emerald-500/10 border-emerald-500/20",
+    conversationManagement: "bg-violet-500/10 border-violet-500/20",
+    taskCompletion: "bg-orange-500/10 border-orange-500/20",
+  };
+  return bgs[criterion] || "bg-muted";
+}
+
+export function getPoolLabel(criteria: string[]): string {
+  if (criteria.includes("speechNaturalness") && criteria.includes("conversationManagement")) {
+    return "Speech & Flow Specialist";
+  }
+  if (criteria.includes("understandingAccuracy") && criteria.includes("taskCompletion")) {
+    return "Domain & Logic Specialist";
+  }
+  return "Generalist Evaluator";
+}

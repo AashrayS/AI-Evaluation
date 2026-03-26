@@ -32,8 +32,22 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { conversations, evaluations, evaluators } from "@/data/mock-data";
-import { aggregateScores } from "@/lib/scoring-engine";
-import { getScoreColor } from "@/lib/scoring-engine";
+import {
+  aggregateScores,
+  getScoreColor,
+  getCriterionColor,
+  getCriterionBg,
+  getPoolLabel,
+  criterionLabels,
+} from "@/lib/scoring-engine";
+import { EvaluationScores } from "@/types";
+
+const criteria: (keyof EvaluationScores)[] = [
+  "speechNaturalness",
+  "understandingAccuracy",
+  "conversationManagement",
+  "taskCompletion",
+];
 
 export default function EvaluationsPage() {
   const [search, setSearch] = useState("");
@@ -187,65 +201,79 @@ export default function EvaluationsPage() {
         </TabsContent>
 
         <TabsContent value="results" className="mt-4">
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Completed Evaluations
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-border">
-                    <TableHead>Conversation</TableHead>
-                    <TableHead>Evaluator</TableHead>
-                    <TableHead>Speech</TableHead>
-                    <TableHead>Understanding</TableHead>
-                    <TableHead>Management</TableHead>
-                    <TableHead>Task</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {evaluations.map((ev) => {
-                    const evaluator = evaluators.find((e) => e.id === ev.evaluatorId);
-                    return (
-                      <TableRow key={ev.id} className="border-border">
-                        <TableCell className="font-mono text-xs">
-                          {ev.conversationId.toUpperCase()}
-                          {ev.isGoldStandard && (
-                            <Star className="inline h-3 w-3 ml-1 text-amber-400" />
-                          )}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {evaluator?.name || ev.evaluatorId}
-                        </TableCell>
-                        <TableCell>
-                          <ScoreCell score={ev.scores.speechNaturalness} />
-                        </TableCell>
-                        <TableCell>
-                          <ScoreCell score={ev.scores.understandingAccuracy} />
-                        </TableCell>
-                        <TableCell>
-                          <ScoreCell score={ev.scores.conversationManagement} />
-                        </TableCell>
-                        <TableCell>
-                          <ScoreCell score={ev.scores.taskCompletion} />
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {Math.round(ev.timeSpentSec / 60)}m
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {new Date(ev.createdAt).toLocaleDateString()}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <div className="space-y-4">
+            {conversations.filter(c => evaluations.some(e => e.conversationId === c.id)).map((conv) => {
+              const convEvals = evaluations.filter(e => e.conversationId === conv.id);
+              const aggScores = aggregateScores(convEvals);
+
+              return (
+                <Card key={conv.id} className="bg-card border-border overflow-hidden">
+                  <div className="bg-muted/30 p-4 border-b border-border flex items-center justify-between">
+                    <div>
+                      <h3 className="font-bold flex items-center gap-2">
+                        {conv.id.toUpperCase()}
+                        {conv.isGoldStandard && <Star className="h-3 w-3 text-amber-400 fill-amber-400" />}
+                      </h3>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{conv.model} • {conv.category}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      {aggScores && criteria.map(c => aggScores[c] !== undefined && (
+                        <div key={c} className="text-right">
+                          <p className={`text-[9px] font-medium ${getCriterionColor(c)}`}>{criterionLabels[c].split(" ")[0]}</p>
+                          <p className="text-sm font-bold leading-tight">{aggScores[c]?.toFixed(1)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-border hover:bg-transparent">
+                          <TableHead className="w-[180px] h-8 text-[10px] uppercase">Expert Evaluator</TableHead>
+                          {criteria.map(c => (
+                            <TableHead key={c} className="h-8 text-[10px] uppercase text-center">{criterionLabels[c]}</TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {convEvals.map((ev) => {
+                          const evaluator = evaluators.find((e) => e.id === ev.evaluatorId);
+                          return (
+                            <TableRow key={ev.id} className="border-border hover:bg-transparent">
+                              <TableCell className="py-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+                                    {evaluator?.name.split(" ").map(n => n[0]).join("")}
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-medium">{evaluator?.name}</p>
+                                    <p className="text-[9px] text-muted-foreground line-clamp-1">
+                                      {getPoolLabel(evaluator?.specializations || [])}
+                                    </p>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              {criteria.map(c => (
+                                <TableCell key={c} className="text-center py-2">
+                                  {ev.scores[c] !== undefined ? (
+                                    <Badge variant="outline" className={`font-bold ${getScoreColor(ev.scores[c] ?? 0)} ${getCriterionBg(c)} border-0`}>
+                                      {ev.scores[c]}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-[10px] text-muted-foreground/30">—</span>
+                                  )}
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </TabsContent>
 
         <TabsContent value="evaluators" className="mt-4">
@@ -297,11 +325,8 @@ export default function EvaluationsPage() {
                       <p className="text-xs text-muted-foreground">Avg Score</p>
                       <p className="font-bold">
                         {(
-                          (ev.avgScores.speechNaturalness +
-                            ev.avgScores.understandingAccuracy +
-                            ev.avgScores.conversationManagement +
-                            ev.avgScores.taskCompletion) /
-                          4
+                          ev.specializations.reduce((sum, s) => sum + (ev.avgScores[s] ?? 0), 0) /
+                          (ev.specializations.length || 1)
                         ).toFixed(1)}
                       </p>
                     </div>
@@ -348,7 +373,10 @@ function PriorityBadge({ priority }: { priority: string }) {
   );
 }
 
-function ScoreCell({ score }: { score: number }) {
+function ScoreCell({ score }: { score?: number }) {
+  if (score === undefined || score === null) {
+    return <span className="text-xs text-muted-foreground">-</span>;
+  }
   return (
     <span className={`text-sm font-bold ${getScoreColor(score)}`}>
       {score}

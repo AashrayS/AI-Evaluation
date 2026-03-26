@@ -64,10 +64,10 @@ export interface Conversation {
 }
 
 export interface EvaluationScores {
-  speechNaturalness: number; // 1–5
-  understandingAccuracy: number; // 1–5
-  conversationManagement: number; // 1–5
-  taskCompletion: number; // 1–5
+  speechNaturalness?: number; // 1–5
+  understandingAccuracy?: number; // 1–5
+  conversationManagement?: number; // 1–5
+  taskCompletion?: number; // 1–5
 }
 
 export interface Evaluation {
@@ -88,6 +88,7 @@ export interface Evaluator {
   email: string;
   avatar?: string;
   totalEvaluations: number;
+  specializations: (keyof EvaluationScores)[];
   avgScores: EvaluationScores;
   avgTimePerEvalSec: number;
   goldStandardAccuracy: number; // 0–1
