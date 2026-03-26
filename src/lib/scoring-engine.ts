@@ -28,12 +28,70 @@ export function aggregateScores(evaluations: Evaluation[]): EvaluationScores | n
   return Object.keys(result).length > 0 ? result : null;
 }
 
-// ========== Inter-Evaluator Agreement ==========
-// Simplified Krippendorff's alpha approximation
+// ========== Inter-Evaluator Agreement: Cohen's Weighted Kappa ==========
+// Uses linear weights on a 1-5 ordinal scale (standard for Likert-type data).
+// κ = 1 - (Σ w_ij * p_ij) / (Σ w_ij * p_ie * p_ej)
+// W_ij = |i - j| / (k - 1)  where k = number of scale categories (5)
 
+export function calculateWeightedKappa(
+  evaluations: Evaluation[],
+  criterion: keyof EvaluationScores
+): number | null {
+  const SCALE_MIN = 1;
+  const SCALE_MAX = 5;
+  const K = SCALE_MAX - SCALE_MIN + 1; // 5 categories
+
+  // Collect all pairs of scores for this criterion
+  const pairs: [number, number][] = [];
+  for (let i = 0; i < evaluations.length; i++) {
+    for (let j = i + 1; j < evaluations.length; j++) {
+      const a = evaluations[i].scores[criterion];
+      const b = evaluations[j].scores[criterion];
+      if (a !== undefined && b !== undefined) {
+        pairs.push([a, b]);
+      }
+    }
+  }
+
+  if (pairs.length === 0) return null;
+
+  // Build score frequency distributions
+  const allScores = pairs.flatMap(([a, b]) => [a, b]);
+  const countByScore: Record<number, number> = {};
+  for (let s = SCALE_MIN; s <= SCALE_MAX; s++) countByScore[s] = 0;
+  for (const s of allScores) countByScore[s] = (countByScore[s] || 0) + 1;
+
+  const n = allScores.length;
+  const marginals: Record<number, number> = {};
+  for (let s = SCALE_MIN; s <= SCALE_MAX; s++) {
+    marginals[s] = (countByScore[s] || 0) / n;
+  }
+
+  // Linear weight: w_ij = |i - j| / (K - 1)
+  const weight = (a: number, b: number) => Math.abs(a - b) / (K - 1);
+
+  // Observed weighted disagreement
+  let Po_disagree = 0;
+  for (const [a, b] of pairs) Po_disagree += weight(a, b);
+  Po_disagree /= pairs.length;
+
+  // Expected weighted disagreement (from marginals)
+  let Pe_disagree = 0;
+  for (let i = SCALE_MIN; i <= SCALE_MAX; i++) {
+    for (let j = SCALE_MIN; j <= SCALE_MAX; j++) {
+      Pe_disagree += weight(i, j) * marginals[i] * marginals[j];
+    }
+  }
+
+  // Avoid division by zero (all scores identical)
+  if (Pe_disagree === 0) return 1;
+
+  // κ_w = 1 - (Po_disagree / Pe_disagree)
+  return Math.round((1 - Po_disagree / Pe_disagree) * 100) / 100;
+}
+
+// Aggregate kappa across all criteria (pool-aware: only scored criteria)
 export function calculateAgreement(evaluations: Evaluation[]): number {
-  if (evaluations.length < 2) return 1;
-
   const criteria: (keyof EvaluationScores)[] = [
     "speechNaturalness",
     "understandingAccuracy",
@@ -41,26 +99,32 @@ export function calculateAgreement(evaluations: Evaluation[]): number {
     "taskCompletion",
   ];
 
-  let totalPairs = 0;
-  let agreementSum = 0;
+  const kappaValues = criteria
+    .map((c) => calculateWeightedKappa(evaluations, c))
+    .filter((k): k is number => k !== null);
 
-  for (const criterion of criteria) {
-    for (let i = 0; i < evaluations.length; i++) {
-      for (let j = i + 1; j < evaluations.length; j++) {
-        const scoreI = evaluations[i].scores[criterion];
-        const scoreJ = evaluations[j].scores[criterion];
-
-        if (scoreI !== undefined && scoreJ !== undefined) {
-          const diff = Math.abs(scoreI - scoreJ);
-          agreementSum += diff <= 1 ? 1 : 0;
-          totalPairs++;
-        }
-      }
-    }
-  }
-
-  return totalPairs > 0 ? agreementSum / totalPairs : 1;
+  if (kappaValues.length === 0) return 1;
+  const sum = kappaValues.reduce((a, b) => a + b, 0);
+  return Math.round((sum / kappaValues.length) * 100) / 100;
 }
+
+// Interpret a kappa value into a human-readable band
+export function interpretKappa(kappa: number): {
+  label: string;
+  color: string;
+  description: string;
+} {
+  if (kappa >= 0.8)
+    return { label: "Near-Perfect", color: "text-emerald-400", description: "Highly reliable agreement" };
+  if (kappa >= 0.6)
+    return { label: "Substantial", color: "text-blue-400", description: "Good consistency, minor rubric drift" };
+  if (kappa >= 0.4)
+    return { label: "Moderate", color: "text-yellow-400", description: "Some inconsistency — consider calibration" };
+  if (kappa >= 0.2)
+    return { label: "Fair", color: "text-orange-400", description: "Significant drift — rubric revision needed" };
+  return { label: "Poor", color: "text-red-400", description: "Unreliable — immediate calibration required" };
+}
+
 
 // ========== Gold Standard Accuracy ==========
 

@@ -39,6 +39,7 @@ import {
   getCriterionBg,
   getPoolLabel,
   criterionLabels,
+  interpretKappa,
 } from "@/lib/scoring-engine";
 import { EvaluationScores } from "@/types";
 
@@ -310,10 +311,16 @@ export default function EvaluationsPage() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Agreement</p>
-                      <p className={`font-bold ${ev.interAgreement >= 0.85 ? "text-emerald-400" : ev.interAgreement >= 0.75 ? "text-yellow-400" : "text-red-400"}`}>
-                        {(ev.interAgreement * 100).toFixed(0)}%
-                      </p>
+                      <p className="text-xs text-muted-foreground">Kappa (κ)</p>
+                      {(() => {
+                        const k = interpretKappa(ev.interAgreement);
+                        return (
+                          <div>
+                            <p className={`font-bold text-sm ${k.color}`}>{ev.interAgreement.toFixed(2)}</p>
+                            <p className={`text-[9px] font-medium ${k.color}`}>{k.label}</p>
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Avg Time</p>

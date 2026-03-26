@@ -32,6 +32,7 @@ import {
   getCriterionColor,
   getCriterionBg,
   getPoolLabel,
+  interpretKappa,
 } from "@/lib/scoring-engine";
 import { EvaluationScores } from "@/types";
 
@@ -212,21 +213,23 @@ export default function EvaluationDetailPage({
                   </div>
                 )}
                 {agreement !== null && (
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-sm pt-2 border-t border-border">
                     <span className="text-muted-foreground">
-                      Inter-evaluator Agreement
+                      Reliability (Kappa)
                     </span>
-                    <span
-                      className={`font-bold ${
-                        agreement >= 0.85
-                          ? "text-emerald-400"
-                          : agreement >= 0.7
-                          ? "text-yellow-400"
-                          : "text-red-400"
-                      }`}
-                    >
-                      {(agreement * 100).toFixed(0)}%
-                    </span>
+                    {(() => {
+                      const k = interpretKappa(agreement);
+                      return (
+                        <div className="text-right">
+                          <span className={`font-bold ${k.color}`}>
+                            {agreement.toFixed(2)}
+                          </span>
+                          <p className={`text-[10px] font-medium ${k.color}`}>
+                            {k.label}
+                          </p>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </CardContent>

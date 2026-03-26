@@ -35,6 +35,7 @@ import {
   Legend,
   Cell,
 } from "recharts";
+import { interpretKappa } from "@/lib/scoring-engine";
 
 const tooltipStyle = {
   background: "oklch(0.17 0.015 260)",
@@ -48,7 +49,7 @@ const agreementData = evaluators
   .filter((e) => e.isActive)
   .map((e) => ({
     name: e.name.split(" ")[0],
-    agreement: Math.round(e.interAgreement * 100),
+    agreement: e.interAgreement, // Now raw Kappa 0-1
     goldAccuracy: Math.round(e.goldStandardAccuracy * 100),
   }));
 
@@ -102,11 +103,11 @@ export default function MetricsPage() {
       {/* Top KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
-          label="Inter-Evaluator Agreement"
-          value={`${(dashboardMetrics.avgInterAgreement * 100).toFixed(0)}%`}
+          label="Inter-Evaluator Kappa (κ)"
+          value={dashboardMetrics.avgInterAgreement.toFixed(2)}
           icon={Users}
-          status={dashboardMetrics.avgInterAgreement >= 0.8 ? "good" : "warn"}
-          target="Target: >80%"
+          status={dashboardMetrics.avgInterAgreement >= 0.6 ? "good" : "warn"}
+          target={`Band: ${interpretKappa(dashboardMetrics.avgInterAgreement).label}`}
         />
         <KpiCard
           label="Avg Eval Time"
@@ -162,7 +163,7 @@ export default function MetricsPage() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={agreementData} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" domain={[0, 100]} />
+                      <XAxis type="number" domain={[0, 1]} tickFormatter={(v) => v.toFixed(1)} />
                       <YAxis dataKey="name" type="category" width={70} />
                       <Tooltip contentStyle={tooltipStyle} />
                       <Bar dataKey="agreement" fill="#818cf8" radius={[0, 6, 6, 0]} />
@@ -405,7 +406,12 @@ export default function MetricsPage() {
                         <p className="text-sm font-medium truncate">{ev.name}</p>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           <span>Gold: <span className={goldPct >= 90 ? "text-emerald-400" : goldPct >= 80 ? "text-yellow-400" : "text-red-400"}>{goldPct}%</span></span>
-                          <span>Agreement: <span className={agreePct >= 85 ? "text-emerald-400" : agreePct >= 75 ? "text-yellow-400" : "text-red-400"}>{agreePct}%</span></span>
+                          {(() => {
+                            const k = interpretKappa(ev.interAgreement);
+                            return (
+                              <span>Kappa: <span className={k.color}>{ev.interAgreement.toFixed(2)} ({k.label})</span></span>
+                            );
+                          })()}
                         </div>
                       </div>
                       {reliable ? (
